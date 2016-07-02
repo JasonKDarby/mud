@@ -1,0 +1,7 @@
+ext {
+  kotlinVersion = '1.0.3'
+  kotlinGradlePlugin = "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion"
+  kotlinStdLib = "org.jetbrains.kotlin:kotlin-stdlib:$kotlinVersion"
+}
+
+group = 'com.jdarb'

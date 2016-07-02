@@ -1,0 +1,24 @@
+group rootProject.group
+version '1.0-SNAPSHOT'
+
+buildscript {
+  repositories {
+    mavenCentral()
+  }
+  dependencies {
+    classpath kotlinGradlePlugin
+  }
+}
+
+apply plugin: 'kotlin'
+apply plugin: 'application'
+
+mainClassName = 'com.jdarb.mud.client.Client'
+
+repositories {
+  jcenter()
+}
+
+dependencies {
+  compile kotlinStdLib
+}

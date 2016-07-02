@@ -1,0 +1,4 @@
+rootProject.name = 'mud'
+
+include 'client'
+include 'server'
