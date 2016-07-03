@@ -13,6 +13,7 @@ buildscript {
 apply plugin: 'kotlin'
 apply plugin: 'application'
 
+//Because this is javafx we can use the Client class since it implements Application.
 mainClassName = 'com.jdarb.mud.client.Client'
 
 repositories {
@@ -25,4 +26,5 @@ repositories {
 dependencies {
   compile kotlinStdLib
   compile "com.rahulrav:com.rahulrav.futures:1.0.4"
+  compile vertxCoreLib
 }

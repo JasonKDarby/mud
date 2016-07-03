@@ -12,21 +12,14 @@ import javafx.scene.layout.VBox
 import javafx.stage.Stage
 
 class Client : Application() {
-    companion object {
-        @JvmStatic fun main(args: Array<String>) = launch(Client::class.java)
-    }
-
     override fun start(primaryStage: Stage) = initPrimaryStage(primaryStage).show()
-
 }
 
-private val nl = System.lineSeparator()
+private val defaultNl = System.lineSeparator()
 
-private val userInputIndicator = " > "
+private val defaultUserInputIndicator = " > "
 
-private val initialMessagesText = "Type 'connect <IP>:<port>'$nl"
-
-private val inputDelay = 200
+private val initialMessagesText = "Type 'connect <IP>:<port>'$defaultNl"
 
 private val messages = TextArea().apply {
     isEditable = false
@@ -34,25 +27,42 @@ private val messages = TextArea().apply {
 }
 
 private val input = TextField().apply {
-    setOnAction { onInputAction(it, this, messages, inputDelay.toLong()) }
+    setOnAction { onInputAction(it, this) }
 }
 
-private fun onInputAction(value: ActionEvent, input: TextField, messages: TextArea, inputDelay: Long): Unit =
-        if (input.text.isNotEmpty()) {
-            val text = input.text //We need a dedicated text variable because input.clear wipes input.text
-            messages.appendText(userInputIndicator+text+nl)
-            input.clear()
+private fun onInputAction(value: ActionEvent, textField: TextField = input, textArea: TextArea = messages): Future<Unit> =
+        if (textField.text.isNotEmpty()) textField.text.let { rawText ->
+            textArea.appendText(rawText.toUserText())
+            textField.clear()
             Future.submit {
-                input.setOnAction {}
-                Future.submit { processInput(text) }
-                Thread.sleep(inputDelay)
-                input.setOnAction { onInputAction(value, input, messages, inputDelay) }
-            }
-            Unit
+                textField.clearOnAction()
+                Future.submit { processInput(rawText) }.apply {
+                    onSuccess { textField.setDefaultOnAction() }
+                    onError {
+                        textField.setDefaultOnAction()
+                        textArea.appendText(it.toServerErrorMessage())
+                    }
+                }
+            }.flatMap { it }
         }
-        else Unit //If something should be done when no text is entered the action should go here
+        else Future.submit { }
 
-private fun processInput(input: String) = Unit
+private fun Exception.toServerErrorMessage() = when (this.message) {
+    //TODO: this doesn't make a whole lot of sense
+    null -> "Whoops, there was an error without any text.".toServerText()
+    else -> {
+        "ERROR: ${this.message!!.toServerText()}"
+    }
+}
+
+private fun String.toUserText(userInputIndicator: String = defaultUserInputIndicator, nl: String = defaultNl): String =
+"$userInputIndicator$this$nl"
+
+private fun String.toServerText(nl: String = defaultNl): String = "$this$nl"
+
+private fun TextField.setDefaultOnAction() = setOnAction { onInputAction(it) }
+
+private fun TextField.clearOnAction() = setOnAction {  }
 
 private val footer = ToolBar()
 

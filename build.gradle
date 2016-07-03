@@ -2,6 +2,9 @@ ext {
   kotlinVersion = '1.0.3'
   kotlinGradlePlugin = "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion"
   kotlinStdLib = "org.jetbrains.kotlin:kotlin-stdlib:$kotlinVersion"
+
+  vertxVersion = '3.3.0'
+  vertxCoreLib = "io.vertx:vertx-core:$vertxVersion"
 }
 
 group = 'com.jdarb'
