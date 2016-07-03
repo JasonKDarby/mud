@@ -4,54 +4,70 @@ import io.vertx.core.Vertx
 import io.vertx.core.buffer.Buffer
 import io.vertx.core.http.HttpClient
 import io.vertx.core.http.HttpClientOptions
-import io.vertx.core.http.WebSocketStream
-import java.util.*
-import java.util.concurrent.CountDownLatch
+import io.vertx.core.http.WebSocket
+import javafx.scene.control.TextArea
 
-private val vertx = Vertx.vertx()
-private var httpClient = Optional.empty<HttpClient>()
-private var ws = Optional.empty<WebSocketStream>()
-private var host = Optional.empty<String>()
-private var port = Optional.empty<Int>()
-
-internal fun processInput(input: String) = when {
+internal fun processInput(input: String, resultTarget: TextArea) = when {
     input.startsWith("connect ") -> {
-        if (ws.isPresent)
-            throw Exception("You are already connected to ${host.orElseThrow {
-                Exception("Unanticipated error state.  Host is not set but websocket is connected.") }
-            }:${port.orElseThrow {
-                Exception("Unanticipated error state.  Port is not set but websocket is connected.") }
-            }.")
-        else {
-            val arguments = input.removePrefix("connect ").split(":")
-            port = Optional.of(Integer.parseInt(arguments[1]))
-            host = Optional.of(arguments[0])
-            httpClient = Optional.of(vertx.createHttpClient(
-                    HttpClientOptions().setDefaultHost(host.get()).setDefaultPort(port.get())))
-            Unit
-        }
+        val arguments = input.removePrefix("connect ").split(":")
+        connection.connect(arguments[0], Integer.parseInt(arguments[1]))
+        resultTarget.appendText("Connected".toServerText())
+        Unit
     }
-    input == "close" -> if(httpClient.isPresent) {
-        httpClient.get().close()
-        ws = Optional.empty()
-        host = Optional.empty()
-        port = Optional.empty()
-    } else throw Exception("Not connected.")
+    input == "close" -> {
+        connection.close()
+        resultTarget.appendText("Closed connection".toServerText())
+    }
     else -> {
-        if (httpClient.isPresent) {
-            ws = Optional.of(httpClient.get().websocketStream(""))
-            if (ws.isPresent) ws.get().let { ws ->
-                ws.handler { websocket ->
-                    val latch = CountDownLatch(1)
-                    websocket.handler { message ->
-                        println(message.toString())
-                        websocket.close()
-                    }
-                    websocket.write(Buffer.buffer(input))
-                }
+        connection.sendMessage(input) { resultTarget.appendText(it.toString().toServerText()) }
+    }
+}
 
-                Unit
-            } else throw Exception("You done goofed!")
-        } else throw Exception("You done goofed!")
+internal object connection {
+    private val vertx = Vertx.vertx()
+    private lateinit var httpClient: HttpClient
+    private lateinit var ws: WebSocket
+    private lateinit var host: String
+    //I would rather set this to lateinit or something but you can't.  I would prefer to not put logic around testing
+    //for MIN_VALUE.
+    private var port = Int.MIN_VALUE
+
+    var connected = false
+        private set
+
+    private val notConnectedException = Exception("You are not connected.")
+
+    fun connect(inputHost: String, inputPort: Int) {
+        if(!connected) {
+            host = inputHost
+            port = inputPort
+            httpClient = vertx.createHttpClient(HttpClientOptions().setDefaultHost(host).setDefaultPort(port))
+            httpClient.websocket("") { ws = it }
+            connected = true
+        } else throw Exception("Already connected to $host:$port")
+    }
+
+    fun close() {
+        if(connected) {
+            ws.close()
+            httpClient.close()
+            connected = false
+        } else throw notConnectedException
+    }
+
+    fun sendMessage(message: String, responseHandler: (Buffer) -> Unit) {
+        if(connected) {
+            ws.handler(responseHandler)
+            ws.write(Buffer.buffer(message))
+        } else throw notConnectedException
+    }
+
+    //Call this during application shutdown
+    fun shutdown() {
+        if(connected) {
+            close()
+            connected = false
+        }
+        vertx.close()
     }
 }
