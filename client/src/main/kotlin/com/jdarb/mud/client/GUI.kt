@@ -4,7 +4,6 @@ import com.rahulrav.futures.Future
 import javafx.application.Application
 import javafx.scene.Scene
 import javafx.scene.control.Button
-import javafx.scene.control.TextArea
 import javafx.scene.control.TextField
 import javafx.scene.control.ToolBar
 import javafx.scene.layout.Priority
@@ -61,11 +60,21 @@ private fun Exception.toServerErrorMessage() = when (this.message) {
     else -> "ERROR: ${this.message!!.toServerText()}"
 }
 
-internal fun StyleClassedTextArea.appendUserText(text: String) = later { appendText(text.toUserText()) }
+internal fun StyleClassedTextArea.appendStyledText(text: String, cssClass: String) = later {
+    val from = this.length - 1
+    val to = from+text.length
+    appendText(text)
+    setStyleClass(from, to, cssClass)
+}
 
-internal fun StyleClassedTextArea.appendErrorText(error: Exception) = later { appendText(error.toServerErrorMessage())}
+internal fun StyleClassedTextArea.appendUserText(text: String) =
+        appendStyledText(text.toUserText(), "user")
 
-internal fun StyleClassedTextArea.appendServerText(text: String) = later { appendText(text.toServerText()) }
+internal fun StyleClassedTextArea.appendErrorText(error: Exception) =
+        appendStyledText(error.toServerErrorMessage(), "error")
+
+internal fun StyleClassedTextArea.appendServerText(text: String) =
+        appendStyledText(text.toServerText(), "server")
 
 private fun String.toUserText(userInputIndicator: String = defaultUserInputIndicator, nl: String = defaultNl): String =
     "$userInputIndicator$this$nl"
@@ -76,10 +85,14 @@ internal fun String.toServerText(nl: String = defaultNl): String = "$this$nl"
 internal fun later(toDoLater: () -> Unit) = javafx.application.Platform.runLater(toDoLater)
 
 private fun initPrimaryStage(primaryStage: Stage) = primaryStage.apply {
+    val componentSpacing = 10.0
     val (defaultHeight, defaultWidth, defaultMinHeight, defaultMinWidth) = listOf(600.0, 600.0, 300.0, 300.0)
     title = "MUD"
-    scene = Scene(VBox(10.0, messages, input, footer)
-            .apply { setPrefSize(defaultHeight, defaultWidth) }, defaultHeight, defaultWidth)
+    scene = Scene(VBox(componentSpacing, messages, input, footer)
+            .apply { setPrefSize(defaultHeight, defaultWidth) }, defaultHeight, defaultWidth).apply {
+        stylesheets.add("style.css")
+    }
+
     VBox.setVgrow(messages, Priority.ALWAYS)
     height = defaultHeight; width = defaultWidth; minHeight = defaultMinHeight; minWidth = defaultMinWidth
     setOnCloseRequest { connection.shutdown() }
@@ -94,20 +107,14 @@ private interface OnActionHack {
 }
 
 private class ButtonWithOnActionHack(text: String, val defaultInput: String) : OnActionHack, Button(text) {
-
     init {
         setDefaultOnAction()
     }
-
     override fun clearOnAction() = setOnAction {  }
-
     override fun setDefaultOnAction() = setOnAction { input(defaultInput, this) }
-
 }
 
 private class TextFieldWithOnActionHack : OnActionHack, TextField() {
     override fun clearOnAction() = setOnAction {  }
-
     override fun setDefaultOnAction() = setOnAction { clearTextAndInput(this) }
-
 }
