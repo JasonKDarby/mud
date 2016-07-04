@@ -10,38 +10,30 @@ import javafx.scene.control.ToolBar
 import javafx.scene.layout.Priority
 import javafx.scene.layout.VBox
 import javafx.stage.Stage
+import org.fxmisc.richtext.StyleClassedTextArea
 
 class Client : Application() {
     override fun start(primaryStage: Stage) = initPrimaryStage(primaryStage).show()
 }
 
-private val defaultNl = System.lineSeparator()
+internal val defaultNl = System.lineSeparator()
 
-private val defaultUserInputIndicator = " > "
+internal val defaultUserInputIndicator = " > "
 
 private val initialMessagesText = "Type 'connect <IP>:<port>'$defaultNl"
 
-private val messages = TextArea().apply {
-    isEditable = false
-    appendText(initialMessagesText)
-}
+private val messages = StyleClassedTextArea().apply { isEditable = false; later { appendText(initialMessagesText) } }
 
-private val input = TextFieldWithOnActionHack().apply {
-    setOnAction { clearTextAndInput(this) }
-}
+private val input = TextFieldWithOnActionHack().apply { setOnAction { clearTextAndInput(this) } }
 
-private val disconnect = ButtonWithOnActionHack("close").apply {
-    text = "Disconnect"
-}
+private val disconnect = ButtonWithOnActionHack("Disconnect", "close")
 
-private val connect = ButtonWithOnActionHack("connect localhost:8080").apply {
-    text = "Connect to localhost:8080"
-}
+private val connect = ButtonWithOnActionHack("Connect to localhost:8080", "connect localhost:8080")
 
 private val footer = ToolBar(connect, disconnect)
 
 //This function is used as a processor for ActionEvents which come up in various JavaFX components.
-private fun clearTextAndInput(textField: TextFieldWithOnActionHack, textArea: TextArea = messages): Future<Unit> =
+private fun clearTextAndInput(textField: TextFieldWithOnActionHack, textArea: StyleClassedTextArea = messages): Future<Unit> =
         if (textField.text.isNotEmpty()) textField.text.let { rawText ->
             textField.clear()
             input(rawText, textField, textArea)
@@ -49,15 +41,15 @@ private fun clearTextAndInput(textField: TextFieldWithOnActionHack, textArea: Te
 
 //You can use this function to simulate user input. It is what is actually used for real user input as well. It will
 //handle preventing users from entering input before previous input has been processed by the server.
-private fun input(rawText: String, componentWithOnActionHack: OnActionHack, textArea: TextArea = messages): Future<Unit> {
-    later { textArea.appendText(rawText.toUserText()) }
+private fun input(rawText: String, componentWithOnActionHack: OnActionHack, textArea: StyleClassedTextArea = messages): Future<Unit> {
+    textArea.appendUserText(rawText)
     componentWithOnActionHack.clearOnAction()
     return Future.submit {
         Future.submit { processInput(rawText, textArea) }.apply {
             onSuccess { componentWithOnActionHack.setDefaultOnAction() }
             onError {
                 componentWithOnActionHack.setDefaultOnAction()
-                later { textArea.appendText(it.toServerErrorMessage()) }
+                textArea.appendErrorText(it)
             }
         }
     }.flatMap { it }
@@ -69,22 +61,27 @@ private fun Exception.toServerErrorMessage() = when (this.message) {
     else -> "ERROR: ${this.message!!.toServerText()}"
 }
 
+internal fun StyleClassedTextArea.appendUserText(text: String) = later { appendText(text.toUserText()) }
+
+internal fun StyleClassedTextArea.appendErrorText(error: Exception) = later { appendText(error.toServerErrorMessage())}
+
+internal fun StyleClassedTextArea.appendServerText(text: String) = later { appendText(text.toServerText()) }
+
 private fun String.toUserText(userInputIndicator: String = defaultUserInputIndicator, nl: String = defaultNl): String =
-"$userInputIndicator$this$nl"
+    "$userInputIndicator$this$nl"
 
 internal fun String.toServerText(nl: String = defaultNl): String = "$this$nl"
 
 //Some things in JavaFX need to be interacted with synchronously and this is a good way to do it.
-private fun later(toDoLater: () -> Unit) = javafx.application.Platform.runLater(toDoLater)
+internal fun later(toDoLater: () -> Unit) = javafx.application.Platform.runLater(toDoLater)
 
 private fun initPrimaryStage(primaryStage: Stage) = primaryStage.apply {
+    val (defaultHeight, defaultWidth, defaultMinHeight, defaultMinWidth) = listOf(600.0, 600.0, 300.0, 300.0)
     title = "MUD"
-    scene = Scene(VBox(10.0, messages, input, footer).apply { setPrefSize(600.0, 600.0) }, 300.0, 250.0)
+    scene = Scene(VBox(10.0, messages, input, footer)
+            .apply { setPrefSize(defaultHeight, defaultWidth) }, defaultHeight, defaultWidth)
     VBox.setVgrow(messages, Priority.ALWAYS)
-    height = 600.0
-    width = 600.0
-    minHeight = 300.0
-    minWidth = 300.0
+    height = defaultHeight; width = defaultWidth; minHeight = defaultMinHeight; minWidth = defaultMinWidth
     setOnCloseRequest { connection.shutdown() }
 }
 
@@ -96,7 +93,7 @@ private interface OnActionHack {
     fun setDefaultOnAction()
 }
 
-private class ButtonWithOnActionHack(val defaultInput: String) : OnActionHack, Button() {
+private class ButtonWithOnActionHack(text: String, val defaultInput: String) : OnActionHack, Button(text) {
 
     init {
         setDefaultOnAction()

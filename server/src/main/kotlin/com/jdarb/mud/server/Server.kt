@@ -20,9 +20,7 @@ private fun startServer() {
             println("Received message: ${message.toString()}")
             websocket.write(Buffer.buffer("You sent: $message"))
         }
-        websocket.closeHandler {
-            println("Closed connection to ${websocket.remoteAddress()}")
-        }
+        websocket.closeHandler { println("Closed connection to ${websocket.remoteAddress()}") }
     }.listen(8080)
     eb.consumer<String>("server") { message ->
         println(message.body())

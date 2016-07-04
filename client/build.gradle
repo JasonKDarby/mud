@@ -27,4 +27,5 @@ dependencies {
   compile kotlinStdLib
   compile "com.rahulrav:com.rahulrav.futures:1.0.4"
   compile vertxCoreLib
+  compile 'org.fxmisc.richtext:richtextfx:0.6.10'
 }
