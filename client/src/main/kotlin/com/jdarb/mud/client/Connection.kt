@@ -31,7 +31,11 @@ internal object connection {
             val latch = CountDownLatch(1)
             httpClient = vertx.createHttpClient(HttpClientOptions().setDefaultHost(host).setDefaultPort(port))
             //You have to pass the closure for throwables or else some will just be printed and not thrown.
-            httpClient.websocket("", { websocket -> ws = websocket; latch.countDown() }, { throwable -> t = Optional.of(throwable); latch.countDown() })
+            httpClient.websocket(
+                    "",
+                    { websocket -> ws = websocket; latch.countDown() },
+                    { throwable -> t = Optional.of(throwable); latch.countDown() }
+            )
             latch.await()
             if (t.isPresent) throw Exception(t.get())
             connected = true
