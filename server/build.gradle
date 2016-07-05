@@ -29,6 +29,6 @@ dependencies {
 }
 
 run {
-  systemProperties['AWS_ACCESS_KEY_ID'] = awsAccessKeyId
-  systemProperties['AWS_SECRET_ACCESS_KEY'] = awsSecretAccessKey
+  systemProperties['aws.accessKeyId'] = awsAccessKeyId
+  systemProperties['aws.secretKey'] = awsSecretAccessKey
 }
