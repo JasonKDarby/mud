@@ -74,3 +74,4 @@ gradle-app.setting
 
 .idea/
 */.vertx/
+*/gradle.properties

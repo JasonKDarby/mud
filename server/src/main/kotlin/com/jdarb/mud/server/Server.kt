@@ -1,5 +1,6 @@
 package com.jdarb.mud.server
 
+import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClient
 import io.vertx.core.Verticle
 import io.vertx.core.Vertx
 import io.vertx.core.buffer.Buffer
@@ -10,9 +11,12 @@ import io.vertx.ext.auth.shiro.ShiroAuthOptions
 
 private val vertx = Vertx.vertx()
 private val authConfig = JsonObject().put("properties_path", "classpath:vertx-users.properties")
-internal val authProvider = ShiroAuth.create(vertx, ShiroAuthOptions().setConfig(authConfig))
 private val eb = vertx.eventBus()
 private val httpServer = vertx.createHttpServer()
+
+internal val dbClient = AmazonDynamoDBClient()
+
+internal val authProvider = ShiroAuth.create(vertx, ShiroAuthOptions().setConfig(authConfig))
 
 private val verticlesToDeploy = listOf<Verticle>()
 

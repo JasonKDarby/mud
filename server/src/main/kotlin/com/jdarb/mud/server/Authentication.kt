@@ -18,8 +18,10 @@ private fun ServerWebSocket.login() {
         wh("password:") { password ->
             val authInfo = JsonObject().put("username", username).put("password", password)
             authProvider.authenticate(authInfo) { result ->
-                if(result.succeeded()) write("Welcome back, $username.")
-                else {
+                if(result.succeeded()) {
+                    write("Welcome back, $username.")
+                    //TODO: call next part of the chain with result.result() passed as an argument.
+                } else {
                     write("Invalid credentials.")
                     login()
                 }

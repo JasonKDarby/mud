@@ -25,4 +25,10 @@ dependencies {
   compile "io.vertx:vertx-auth-shiro:$vertxVersion"
   compile 'org.slf4j:slf4j-api:1.7.21'
   compile 'org.slf4j:slf4j-nop:1.7.2'
+  compile 'com.amazonaws:aws-java-sdk:1.11.13'
+}
+
+run {
+  systemProperties['AWS_ACCESS_KEY_ID'] = awsAccessKeyId
+  systemProperties['AWS_SECRET_ACCESS_KEY'] = awsSecretAccessKey
 }
