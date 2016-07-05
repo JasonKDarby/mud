@@ -1,3 +1,12 @@
 .error {
-    -fx-text-fill: red;
+    -fx-fill: red;
+}
+
+.server {
+    -fx-fill: green;
+    -fx-font-weight: bold;
+}
+
+.user {
+
 }

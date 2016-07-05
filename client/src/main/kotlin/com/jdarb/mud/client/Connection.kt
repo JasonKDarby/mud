@@ -22,7 +22,7 @@ internal object connection {
 
     private val notConnectedException = Exception("You are not connected.")
 
-    fun connect(inputHost: String, inputPort: Int) {
+    fun connect(inputHost: String, inputPort: Int, responseHandler: (Buffer) -> Unit) {
         if(!connected) {
             host = inputHost
             port = inputPort
@@ -37,6 +37,7 @@ internal object connection {
                     { throwable -> t = Optional.of(throwable); latch.countDown() }
             )
             latch.await()
+            ws.handler(responseHandler)
             if (t.isPresent) throw Exception(t.get())
             connected = true
         } else throw Exception("Already connected to $host:$port")
@@ -50,9 +51,8 @@ internal object connection {
         } else throw notConnectedException
     }
 
-    fun sendMessage(message: String, responseHandler: (Buffer) -> Unit) {
+    fun sendMessage(message: String) {
         if(connected) {
-            ws.handler(responseHandler)
             ws.write(Buffer.buffer(message))
         } else throw notConnectedException
     }

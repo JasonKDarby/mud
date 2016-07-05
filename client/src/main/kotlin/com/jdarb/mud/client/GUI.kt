@@ -74,6 +74,9 @@ internal fun StyleClassedTextArea.appendErrorText(error: Exception) =
 internal fun StyleClassedTextArea.appendServerText(text: String) =
         appendStyledText(text.toServerText(), "server")
 
+internal fun StyleClassedTextArea.appendClientText(text: String) =
+        appendStyledText(text+defaultNl, "client")
+
 private fun String.toUserText(userInputIndicator: String = defaultUserInputIndicator, nl: String = defaultNl): String =
     "$userInputIndicator$this$nl"
 
