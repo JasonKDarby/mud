@@ -43,15 +43,13 @@ private fun clearTextAndInput(textField: TextFieldWithOnActionHack, textArea: St
 private fun input(rawText: String, componentWithOnActionHack: OnActionHack, textArea: StyleClassedTextArea = messages): Future<Unit> {
     textArea.appendUserText(rawText)
     componentWithOnActionHack.clearOnAction()
-    return Future.submit {
-        Future.submit { processInput(rawText, textArea) }.apply {
-            onSuccess { componentWithOnActionHack.setDefaultOnAction() }
-            onError {
-                componentWithOnActionHack.setDefaultOnAction()
-                textArea.appendErrorText(it)
-            }
+    return Future.submit { processInput(rawText, textArea) }.apply {
+        onSuccess { componentWithOnActionHack.setDefaultOnAction() }
+        onError {
+            componentWithOnActionHack.setDefaultOnAction()
+            textArea.appendErrorText(it)
         }
-    }.flatMap { it }
+    }
 }
 
 private fun Exception.toServerErrorMessage() = when (this.message) {

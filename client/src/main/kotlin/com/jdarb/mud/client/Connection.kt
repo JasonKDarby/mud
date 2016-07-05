@@ -5,6 +5,8 @@ import io.vertx.core.buffer.Buffer
 import io.vertx.core.http.HttpClient
 import io.vertx.core.http.HttpClientOptions
 import io.vertx.core.http.WebSocket
+import java.util.Optional
+import java.util.concurrent.CountDownLatch
 
 internal object connection {
     private val vertx = Vertx.vertx()
@@ -24,8 +26,14 @@ internal object connection {
         if(!connected) {
             host = inputHost
             port = inputPort
+            //This whole thing about catching the error was difficult to debug and I'm kind of proud of it.
+            var t = Optional.empty<Throwable>()
+            val latch = CountDownLatch(1)
             httpClient = vertx.createHttpClient(HttpClientOptions().setDefaultHost(host).setDefaultPort(port))
-            httpClient.websocket("") { ws = it }
+            //You have to pass the closure for throwables or else some will just be printed and not thrown.
+            httpClient.websocket("", { websocket -> ws = websocket; latch.countDown() }, { throwable -> t = Optional.of(throwable); latch.countDown() })
+            latch.await()
+            if (t.isPresent) throw Exception(t.get())
             connected = true
         } else throw Exception("Already connected to $host:$port")
     }
