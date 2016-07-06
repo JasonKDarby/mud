@@ -12,6 +12,11 @@ import io.vertx.core.Vertx
 import io.vertx.core.buffer.Buffer
 import io.vertx.core.http.ServerWebSocket
 import io.vertx.ext.auth.shiro.ShiroAuth
+import io.vertx.ext.web.Router
+import io.vertx.ext.web.handler.sockjs.BridgeEvent
+import io.vertx.ext.web.handler.sockjs.BridgeOptions
+import io.vertx.ext.web.handler.sockjs.PermittedOptions
+import io.vertx.ext.web.handler.sockjs.SockJSHandler
 import java.time.Instant
 import kotlin.concurrent.thread
 
@@ -23,7 +28,7 @@ internal val dynamoDB = DynamoDB(AmazonDynamoDBClient())
 
 internal val authProvider = ShiroAuth.create(vertx, DynamoDBRealm())
 
-private val verticlesToDeploy = listOf<Verticle>()
+private val verticlesToDeploy = listOf<Verticle>(ConnectionMonitor(eb))
 
 const val port = 8080
 
@@ -34,12 +39,23 @@ private fun startServer() {
 
     dynamoDB.createTablesIfNotExist()
 
-    httpServer.websocketHandler { handleWebsocketConnection(it) }.listen(port)
-    eb.consumer<String>("server") { message ->
-        println(message.body())
+    println("Server is up at ${Instant.now()} on port $port")
+
+    val router = Router.router(vertx)
+    val sockJSHandler = SockJSHandler.create(vertx)
+
+    val allowAll = BridgeOptions()
+            .addInboundPermitted(PermittedOptions())
+            .addOutboundPermitted(PermittedOptions())
+
+    sockJSHandler.bridge(allowAll) { event: BridgeEvent ->
+        eb.send(connectionMonitorAddress, Buffer.buffer("${event.type()}: ${event.rawMessage}"))
     }
 
-    println("Server is up at ${Instant.now()} on port $port")
+    router.route("/eventbus/*").handler(sockJSHandler)
+
+    vertx.createHttpServer().requestHandler { router.accept(it) }.listen(port)
+    //httpServer.websocketHandler { handleWebsocketConnection(it) }.listen(port)
 
     Runtime.getRuntime().addShutdownHook(thread(start = false) {
         stopServer()

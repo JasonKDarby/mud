@@ -5,6 +5,8 @@ import io.vertx.core.buffer.Buffer
 import io.vertx.core.http.HttpClient
 import io.vertx.core.http.HttpClientOptions
 import io.vertx.core.http.WebSocket
+import io.vertx.core.http.WebSocketFrame
+import io.vertx.core.json.JsonObject
 import java.util.Optional
 import java.util.concurrent.CountDownLatch
 
@@ -32,8 +34,15 @@ internal object connection {
             httpClient = vertx.createHttpClient(HttpClientOptions().setDefaultHost(host).setDefaultPort(port))
             //You have to pass the closure for throwables or else some will just be printed and not thrown.
             httpClient.websocket(
-                    "",
-                    { websocket -> ws = websocket; latch.countDown() },
+                    "/eventbus/websocket",
+                    { websocket ->
+                        ws = websocket
+                        ws.write("publish", "connection.monitor", "publish from client")
+                        ws.write("register", "connection.monitor", "register from client")
+                        ws.write("send", "connection.monitor", "send from client")
+                        ws.write("unregister", "connection.monitor", "unregister from client")
+                        latch.countDown()
+                    },
                     { throwable -> t = Optional.of(throwable); latch.countDown() }
             )
             latch.await()
@@ -66,3 +75,8 @@ internal object connection {
         vertx.close()
     }
 }
+
+private fun WebSocket.write(type: String, address: String, body: String) =
+        writeFrame(WebSocketFrame.textFrame(JsonObject().put("type", type).put("address", address).put("body", body).encode(), true))
+
+private fun WebSocket.write(text: String) = write(Buffer.buffer(text))

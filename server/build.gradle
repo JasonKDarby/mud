@@ -23,6 +23,7 @@ dependencies {
   compile kotlinStdLib
   compile vertxCoreLib
   compile "io.vertx:vertx-auth-shiro:$vertxVersion"
+  compile "io.vertx:vertx-web:$vertxVersion"
   compile 'org.slf4j:slf4j-api:1.7.21'
   compile 'org.slf4j:slf4j-nop:1.7.2'
   compile 'com.amazonaws:aws-java-sdk:1.11.13'
