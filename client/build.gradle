@@ -27,5 +27,8 @@ dependencies {
   compile kotlinStdLib
   compile "com.rahulrav:com.rahulrav.futures:1.0.4"
   compile vertxCoreLib
+  compile "io.vertx:vertx-tcp-eventbus-bridge:$vertxVersion"
   compile 'org.fxmisc.richtext:richtextfx:0.6.10'
+  compile 'org.slf4j:slf4j-api:1.7.21'
+  compile 'org.slf4j:slf4j-simple:1.7.21'
 }

@@ -6,7 +6,7 @@ internal fun processInput(input: String, resultTarget: StyleClassedTextArea) = i
     when {
         CONNECT_REGEX.matches(sanitized) -> {
             val (@Suppress("UNUSED_VARIABLE") fullMatch, host, port) = CONNECT_REGEX.find(sanitized)!!.groupValues
-            connection.connect(host, Integer.parseInt(port)) { resultTarget.appendServerText(it.toString()) }
+            connection.connect(host, Integer.parseInt(port)) { resultTarget.appendServerText(it) }
             resultTarget.appendClientText("Connected.")
         }
         CLOSE_REGEX.matches(sanitized) -> {

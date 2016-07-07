@@ -1,19 +1,18 @@
 package com.jdarb.mud.client
 
+import io.vertx.core.AsyncResult
 import io.vertx.core.Vertx
-import io.vertx.core.buffer.Buffer
-import io.vertx.core.http.HttpClient
-import io.vertx.core.http.HttpClientOptions
-import io.vertx.core.http.WebSocket
-import io.vertx.core.http.WebSocketFrame
 import io.vertx.core.json.JsonObject
+import io.vertx.core.net.NetSocket
+import io.vertx.ext.eventbus.bridge.tcp.impl.protocol.FrameHelper
+import io.vertx.ext.eventbus.bridge.tcp.impl.protocol.FrameParser
 import java.util.Optional
 import java.util.concurrent.CountDownLatch
 
 internal object connection {
     private val vertx = Vertx.vertx()
-    private lateinit var httpClient: HttpClient
-    private lateinit var ws: WebSocket
+    private val client = vertx.createNetClient()
+    private lateinit var socket: NetSocket
     private lateinit var host: String
     //I would rather set this to lateinit or something but you can't.  I would prefer to not put logic around testing
     //for MIN_VALUE.
@@ -24,45 +23,54 @@ internal object connection {
 
     private val notConnectedException = Exception("You are not connected.")
 
-    fun connect(inputHost: String, inputPort: Int, responseHandler: (Buffer) -> Unit) {
+    fun connect(inputHost: String, inputPort: Int, responseHandler: (String) -> Unit) {
         if(!connected) {
             host = inputHost
             port = inputPort
-            //This whole thing about catching the error was difficult to debug and I'm kind of proud of it.
             var t = Optional.empty<Throwable>()
             val latch = CountDownLatch(1)
-            httpClient = vertx.createHttpClient(HttpClientOptions().setDefaultHost(host).setDefaultPort(port))
-            //You have to pass the closure for throwables or else some will just be printed and not thrown.
-            httpClient.websocket(
-                    "/eventbus/websocket",
-                    { websocket ->
-                        ws = websocket
-                        ws.write("publish", "connection.monitor", "publish from client")
-                        ws.write("register", "connection.monitor", "register from client")
-                        ws.write("send", "connection.monitor", "send from client")
-                        ws.write("unregister", "connection.monitor", "unregister from client")
-                        latch.countDown()
-                    },
-                    { throwable -> t = Optional.of(throwable); latch.countDown() }
-            )
+            client.connect(port, host) { result: AsyncResult<NetSocket> ->
+                if(result.succeeded()) {
+                    socket = result.result()
+
+                    socket.register("global.chat.read")
+                    socket.send("global.chat.client", JsonObject().put("action", "/send").put("text", "wowowowowowow"))
+
+                    val parser = FrameParser() { parse ->
+                        if(parse.failed()) throw Exception("Failed to parse server message.", parse.cause())
+                        else {
+                            val message = frameToMessage(parse.result())
+
+                            if(message.body.isPresent) responseHandler(message.body.get().getString("message"))
+                        }
+                    }
+                    socket.handler(parser)
+                    latch.countDown()
+                } else {
+                    t = Optional.of(result.cause())
+                    latch.countDown()
+                }
+            }
             latch.await()
-            ws.handler(responseHandler)
             if (t.isPresent) throw Exception(t.get())
+            socket.closeHandler {
+                println("Closed socket")
+                connected = false
+            }
             connected = true
         } else throw Exception("Already connected to $host:$port")
     }
 
     fun close() {
         if(connected) {
-            ws.close()
-            httpClient.close()
+            socket.close()
             connected = false
         } else throw notConnectedException
     }
 
     fun sendMessage(message: String) {
         if(connected) {
-            ws.write(Buffer.buffer(message))
+            socket.send("connection.monitor", JsonObject().put("message", message))
         } else throw notConnectedException
     }
 
@@ -70,13 +78,47 @@ internal object connection {
     fun shutdown() {
         if(connected) {
             close()
-            connected = false
         }
+        client.close()
         vertx.close()
+        connected = false
     }
 }
 
-private fun WebSocket.write(type: String, address: String, body: String) =
-        writeFrame(WebSocketFrame.textFrame(JsonObject().put("type", type).put("address", address).put("body", body).encode(), true))
+private fun NetSocket.send(address: String, body: JsonObject) = FrameHelper.sendFrame("send", address, body, this)
 
-private fun WebSocket.write(text: String) = write(Buffer.buffer(text))
+private fun NetSocket.register(address: String) = FrameHelper.sendFrame("register", address, null, this)
+
+private fun NetSocket.unregister(address: String) = FrameHelper.sendFrame("unregister", address, null, this)
+
+private fun NetSocket.publish(address: String, body: JsonObject) = FrameHelper.sendFrame("publish", address, body, this)
+
+
+private enum class Type {
+    message,
+    send,
+    publish,
+    register,
+    unregister
+}
+
+private data class Message(
+        val type: Type,
+        val headers: Optional<List<Pair<String, String>>>,
+        val body: Optional<JsonObject>,
+        val address: String,
+        val replyAddress: Optional<String>
+)
+
+private fun frameToMessage(frame: JsonObject): Message {
+    val type = Type.valueOf(frame.getString("type"))
+    val headers = frame.getJsonObject("headers")?.run { Optional.of(map { it.key to it.value.toString() }) }
+            ?: Optional.empty<List<Pair<String, String>>>()
+    val body = frame.getJsonObject("body").run {
+        if (isEmpty) Optional.empty<JsonObject>()
+        else Optional.of(this)
+    }
+    val address = frame.getString("address")
+    val replyAddress = frame.getJsonObject("replyAddress")?.run { Optional.of(encode()) } ?: Optional.empty<String>()
+    return Message(type, headers, body, address, replyAddress)
+}

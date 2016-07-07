@@ -1,16 +1,15 @@
 package com.jdarb.mud.server
 
 import io.vertx.core.AbstractVerticle
-import io.vertx.core.buffer.Buffer
-import io.vertx.core.eventbus.EventBus
 
 internal const val connectionMonitorAddress = "connection.monitor"
 
-class ConnectionMonitor(val eb: EventBus) : AbstractVerticle() {
+class ConnectionMonitor : AbstractVerticle() {
     override fun start() {
-        val bridgeEventConsumer = eb.consumer<Buffer>(connectionMonitorAddress)
-        bridgeEventConsumer.handler { message ->
-            println("${message.body().toString()}")
+        vertx.eventBus().consumer<Any>(connectionMonitorAddress).handler { message ->
+            println("${message.address()} ${message?.body()?.toString() ?: "null body"} ${message?.body()?.javaClass.toString()}")
+        }.completionHandler {
+            println("Started consumer: ${it.succeeded()}")
         }
     }
 }
