@@ -33,15 +33,19 @@ internal object connection {
                 if(result.succeeded()) {
                     socket = result.result()
 
-                    socket.register("global.chat.read")
-                    socket.send("global.chat.client", JsonObject().put("action", "/send").put("text", "wowowowowowow"))
+                    socket.register("global.chat.read") { body ->
+                        responseHandler("${body.getString("username")}: ${body.getString("message")}")
+                    }
 
                     val parser = FrameParser() { parse ->
                         if(parse.failed()) throw Exception("Failed to parse server message.", parse.cause())
                         else {
                             val message = frameToMessage(parse.result())
-
-                            if(message.body.isPresent) responseHandler(message.body.get().getString("message"))
+                            if(handlerMapping.containsKey(message.address)) {
+                                handlerMapping[message.address]!!.invoke(message.body.get())
+                            } else {
+                                println(parse.result())
+                            }
                         }
                     }
                     socket.handler(parser)
@@ -63,6 +67,7 @@ internal object connection {
 
     fun close() {
         if(connected) {
+            socket.unregister("global.chat.read")
             socket.close()
             connected = false
         } else throw notConnectedException
@@ -70,7 +75,7 @@ internal object connection {
 
     fun sendMessage(message: String) {
         if(connected) {
-            socket.send("connection.monitor", JsonObject().put("message", message))
+            socket.send("global.chat.client", JsonObject().put("action", "/send").put("text", message))
         } else throw notConnectedException
     }
 
@@ -85,9 +90,14 @@ internal object connection {
     }
 }
 
+val handlerMapping = mutableMapOf<String, (JsonObject) -> Unit>()
+
 private fun NetSocket.send(address: String, body: JsonObject) = FrameHelper.sendFrame("send", address, body, this)
 
-private fun NetSocket.register(address: String) = FrameHelper.sendFrame("register", address, null, this)
+private fun NetSocket.register(address: String, handler: (JsonObject) -> Unit) {
+    handlerMapping.put(address, handler)
+    FrameHelper.sendFrame("register", address, null, this)
+}
 
 private fun NetSocket.unregister(address: String) = FrameHelper.sendFrame("unregister", address, null, this)
 

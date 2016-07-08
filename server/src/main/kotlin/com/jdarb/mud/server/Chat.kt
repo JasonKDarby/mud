@@ -4,7 +4,7 @@ import io.vertx.core.AbstractVerticle
 import io.vertx.core.eventbus.EventBus
 import io.vertx.core.json.JsonObject
 
-class GlobalChat : AbstractVerticle() {
+class Chat(val address: String) : AbstractVerticle() {
 
     private lateinit var eb: EventBus
 
@@ -17,11 +17,10 @@ class GlobalChat : AbstractVerticle() {
         eb = vertx.eventBus()
 
         //Users can register
-        val globalChatPublisher = eb.publisher<JsonObject>("global.chat.read")
-
+        val globalChatPublisher = eb.publisher<JsonObject>("$address.chat.read")
 
         //
-        val globalChatConsumer = eb.consumer<JsonObject>("global.chat.client") { message ->
+        val globalChatConsumer = eb.consumer<JsonObject>("$address.chat.client") { message ->
             val action = message.body().getString("action")
             when (action) {
                 "/join" -> {
@@ -32,7 +31,8 @@ class GlobalChat : AbstractVerticle() {
                 }
                 "/send" -> {
                     val text = message.body().getString("text")
-                    globalChatPublisher.send(JsonObject().put("message", text))
+                    eb.publish(globalChatPublisher.address(),
+                            JsonObject().put("username", message.replyAddress()).put("message", text))
                 }
             }
             message.reply(200)

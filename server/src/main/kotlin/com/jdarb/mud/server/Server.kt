@@ -16,7 +16,7 @@ private val verticlesToDeploy = listOf<Pair<Verticle, Boolean>>(
         ConnectionMonitor() to false,
         TCPBridge() to false,
         AuthenticationVerticle(dynamoDBUserPersister) to true,
-        GlobalChat() to false)
+        Chat("global") to false)
 
 fun main(args: Array<String>) = startServer()
 
@@ -41,6 +41,3 @@ private fun stopServer() {
 //        closeHandler { println("Closed connection to ${remoteAddress()}") }
 //    }
 //}
-
-internal fun <T> blocking(blockingCodeHandler: (Future<T>) -> Unit, resultHandler: (AsyncResult<T>) -> Unit) =
-        vertx.executeBlocking(blockingCodeHandler, resultHandler)
