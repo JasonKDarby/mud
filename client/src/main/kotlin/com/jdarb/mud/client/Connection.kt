@@ -9,7 +9,7 @@ import io.vertx.ext.eventbus.bridge.tcp.impl.protocol.FrameParser
 import java.util.Optional
 import java.util.concurrent.CountDownLatch
 
-internal object connection {
+class EventBusTCPBridgeClient {
     private val vertx = Vertx.vertx()
     private val client = vertx.createNetClient()
     private lateinit var socket: NetSocket
@@ -74,16 +74,13 @@ internal object connection {
     }
 
     fun sendMessage(message: String) {
-        if(connected) {
-            socket.send("global.chat.client", JsonObject().put("action", "/send").put("text", message))
-        } else throw notConnectedException
+        if(connected) socket.send("global.chat.client", JsonObject().put("action", "/send").put("text", message))
+        else throw notConnectedException
     }
 
     //Call this during application shutdown
     fun shutdown() {
-        if(connected) {
-            close()
-        }
+        if(connected) close()
         client.close()
         vertx.close()
         connected = false
@@ -99,7 +96,10 @@ private fun NetSocket.register(address: String, handler: (JsonObject) -> Unit) {
     FrameHelper.sendFrame("register", address, null, this)
 }
 
-private fun NetSocket.unregister(address: String) = FrameHelper.sendFrame("unregister", address, null, this)
+private fun NetSocket.unregister(address: String) {
+    handlerMapping.remove(address)
+    FrameHelper.sendFrame("unregister", address, null, this)
+}
 
 private fun NetSocket.publish(address: String, body: JsonObject) = FrameHelper.sendFrame("publish", address, body, this)
 

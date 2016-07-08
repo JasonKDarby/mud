@@ -11,13 +11,19 @@ import javafx.scene.layout.VBox
 import javafx.stage.Stage
 import org.fxmisc.richtext.StyleClassedTextArea
 
+private val eb = EventBusTCPBridgeClient()
+
 class Client : Application() {
-    override fun start(primaryStage: Stage) = initPrimaryStage(primaryStage).show()
+
+    override fun start(primaryStage: Stage) {
+        initPrimaryStage(primaryStage).show()
+    }
+
+    override fun stop() {
+        if(eb.connected) eb.shutdown()
+    }
+
 }
-
-internal val defaultNl = System.lineSeparator()
-
-internal val defaultUserInputIndicator = " > "
 
 private val initialMessagesText = "Type 'connect <IP>:<port>'$defaultNl"
 
@@ -43,7 +49,7 @@ private fun clearTextAndInput(textField: TextFieldWithOnActionHack, textArea: St
 private fun input(rawText: String, componentWithOnActionHack: OnActionHack, textArea: StyleClassedTextArea = messages): Future<Unit> {
     textArea.appendUserText(rawText)
     componentWithOnActionHack.clearOnAction()
-    return Future.submit { processInput(rawText, textArea) }.apply {
+    return Future.submit { processInput(rawText, textArea, eb) }.apply {
         onSuccess { componentWithOnActionHack.setDefaultOnAction() }
         onError {
             componentWithOnActionHack.setDefaultOnAction()
@@ -96,7 +102,7 @@ private fun initPrimaryStage(primaryStage: Stage) = primaryStage.apply {
 
     VBox.setVgrow(messages, Priority.ALWAYS)
     height = defaultHeight; width = defaultWidth; minHeight = defaultMinHeight; minWidth = defaultMinWidth
-    setOnCloseRequest { connection.shutdown() }
+    setOnCloseRequest { eb.shutdown() }
 }
 
 //I know this looks pretty dumb but it's because JavaFX has a bunch of components that should have an interface that
